@@ -2,32 +2,22 @@ package org.example.emailservice.service;
 
 import org.example.emailservice.model.Email;
 import org.example.emailservice.repository.EmailRepository;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
-@EnableScheduling
 public class EmailService {
 
     @Autowired
-    private EmailRepository emailRepository;
+    private JavaMailSender javaMailSender;
 
     @Autowired
-    private JavaMailSender mailSender;
-
-    @RabbitListener(queues = "email-queue")
-    public void receiveEmail(Email email) {
-        email.setStatus("PENDING");
-        emailRepository.save(email);
-        sendEmail(email);
-    }
+    private EmailRepository emailRepository;
 
     public void sendEmail(Email email) {
         try {
@@ -35,18 +25,22 @@ public class EmailService {
             message.setTo(email.getRecipient());
             message.setSubject(email.getSubject());
             message.setText(email.getContent());
-            mailSender.send(message);
-            email.setStatus("SENT");
+            javaMailSender.send(message);
+
+            email.setStatus("sent");
+            email.setErrorMessage(null);
         } catch (Exception e) {
-            email.setStatus("ERROR");
-            email.setErrorMessage(e.getMessage());
+            email.setStatus("erroneous");
+            email.setErrorMessage(e.getClass().getName() + ": " + e.getMessage());
+            email.setAttemptCount(email.getAttemptCount() + 1);
+            email.setLastAttempt(System.currentTimeMillis());
         }
-        emailRepository.save(email);
+        //emailRepository.save(email);
     }
 
-    @Scheduled(fixedRate = 300000)
-    public void resendFailedEmails() {
-        List<Email> failedEmails = emailRepository.findByStatus("ERROR");
+    @Scheduled(fixedRate = 300000) // 5 minutes
+    public void retryFailedEmails() {
+        List<Email> failedEmails = emailRepository.findByStatus("erroneous");
         for (Email email : failedEmails) {
             sendEmail(email);
         }

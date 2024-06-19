@@ -1,13 +1,15 @@
 package org.example.emailservice.model;
 
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.time.LocalDateTime;
-
-@Data
 @Document(indexName = "emails")
+@Getter
+@Setter
 public class Email
 {
     @Id
@@ -18,5 +20,5 @@ public class Email
     private String status;
     private String errorMessage;
     private int attemptCount;
-    private LocalDateTime lastAttempt;
+    private long lastAttempt;
 }
